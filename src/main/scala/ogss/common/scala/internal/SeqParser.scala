@@ -1,0 +1,175 @@
+package ogss.common.scala.internal
+
+import ogss.common.streams.FileInputStream
+import scala.collection.mutable.ArrayBuffer
+import ogss.common.scala.Constants
+import ogss.common.scala.api.OGSSException
+import ogss.common.streams.MappedInStream
+import ogss.common.scala.api.PoolSizeMissmatchError
+import java.nio.BufferUnderflowException
+
+/**
+ * The sequential version of Parser.
+ *
+ * @author Timm Felden
+ */
+final class SeqParser(
+  _in : FileInputStream,
+  _pb : PoolBuilder
+) extends Parser(_in, _pb) {
+
+  /**
+   * parse T and F
+   */
+  override def typeBlock {
+
+    /**
+     * *************** * T Class * ****************
+     */
+    typeDefinitions;
+
+    // calculate cached size and next for all pools
+    {
+      val cs = classes.size
+      if (0 != cs) {
+        var i = cs - 2;
+        if (i >= 0) {
+          var n : Pool[_] = null
+          var p = classes(i + 1);
+          // propagate information in reverse order
+          // i is the pool where next is set, hence we skip the last pool
+          do {
+            n = p;
+            p = classes(i);
+
+            // by compactness, if n has a super pool, p is the previous pool
+            if (null != n.superPool) {
+              n.superPool.cachedSize += n.cachedSize;
+            }
+
+            i -= 1
+          } while (i >= 0);
+        }
+
+        // allocate data and start instance allocation jobs
+        var d : Array[Obj] = null
+        while ({
+          i += 1
+          i < cs
+        }) {
+          val p = classes(i);
+          if (null == p.superPool) {
+            // create new d, because we are in a new type hierarchy
+            d = new Array[Obj](p.cachedSize)
+          }
+          p.asInstanceOf[Pool[Obj]].data = d
+          if (0 != p.staticDataInstances) {
+            p.allocateInstances
+          }
+        }
+      }
+    }
+
+    /**
+     * *************** * T Container * ****************
+     */
+    TContainer
+
+    /**
+     * *************** * T Enum * ****************
+     */
+    TEnum
+
+    /**
+     * *************** * F * ****************
+     */
+    for (p ← classes) {
+      readFields(p.asInstanceOf[Pool[Obj]]);
+    }
+  }
+
+  /**
+   * Jump through HD-entries to create read tasks
+   */
+  override def processData {
+
+    // we expect one HD-entry per field
+    val jobs = new ArrayBuffer[Job](fields.size)
+
+    while (!in.eof()) {
+      // create the map directly and use it for subsequent read-operations to avoid costly position and size
+      // readjustments
+      val map = in.map(in.v32() + 2);
+
+      val id = map.v32();
+      // TODO add a countermeasure against duplicate buckets / fieldIDs
+
+      fields(id) match {
+        case p : HullType[_] ⇒ {
+          val count = map.v32();
+
+          // start hull allocation job
+          val block = p.allocateInstances(count, map);
+
+          // create hull read data task except for StringPool which is still lazy per element and eager per offset
+          if (!p.isInstanceOf[StringPool]) {
+            jobs += new HRT(p, block, map)
+          }
+
+        }
+        case fd : Field[_, _] ⇒ {
+          val block = if (fd.owner.cachedSize >= Constants.FD_Threshold) map.v32() else 0
+
+          // create job with adjusted size that corresponds to the * in the specification (i.e. exactly the data)
+          jobs += new ReadTask(block, fd, map)
+        }
+      }
+    }
+
+    // perform read tasks
+    try {
+      for (j ← jobs)
+        j.run
+    } catch {
+      case t : OGSSException ⇒ throw t
+      case t : Throwable     ⇒ throw new OGSSException("internal error: unexpected foreign exception", t)
+    }
+
+    // TODO start tasks that perform default initialization of fields not obtained from file
+  }
+
+  private final class ReadTask(
+    private val block : Int,
+    private val f :     Field[_, _],
+    private val in :    MappedInStream
+  ) extends Job {
+
+    override def run {
+      val owner = f.owner;
+      val bpo = owner.bpo;
+      val first = block * Constants.FD_Threshold;
+      val last = Math.min(owner.cachedSize, first + Constants.FD_Threshold);
+      try {
+        f.read(bpo + first, bpo + last, in);
+
+        if (!in.eof() && !f.isInstanceOf[LazyField[_, _]])
+          throw new PoolSizeMissmatchError(in.position(), bpo + first, bpo + last, f);
+
+      } catch {
+        case e : BufferUnderflowException ⇒
+          throw new PoolSizeMissmatchError(bpo + first, bpo + last, f, e);
+      }
+    }
+  }
+
+  private final class HRT(
+    private val t :     HullType[_],
+    private val block : Int,
+    private val map :   MappedInStream
+  ) extends Job {
+
+    override def run {
+      t.read(block, map);
+    }
+  }
+}
