@@ -96,7 +96,7 @@ final class Writer(
     for (p ← state.classes) {
       out.v64(string.IDs.get(p.name));
       out.v64(p.staticDataInstances);
-      restrictions(p, out);
+      attributes(p, out);
       if (null == p.superPool)
         out.i8(0);
       else {
@@ -179,7 +179,7 @@ final class Writer(
       // write info
       out.v64(string.id(f.name));
       out.v64(f.t.typeID);
-      restrictions(f, out);
+      attributes(f, out);
     }
 
     out.close();
@@ -254,16 +254,16 @@ final class Writer(
 object Writer {
 
   /**
-   * TODO serialization of restrictions
+   * TODO serialization of attributes
    */
-  def restrictions(p : Pool[_], out : OutStream) {
+  def attributes(p : Pool[_], out : OutStream) {
     out.i8(0.toByte);
   }
 
   /**
-   * TODO serialization of restrictions
+   * TODO serialization of attributes
    */
-  def restrictions(f : Field[_, _], out : OutStream) {
+  def attributes(f : Field[_, _], out : OutStream) {
     out.i8(0.toByte)
   }
 }

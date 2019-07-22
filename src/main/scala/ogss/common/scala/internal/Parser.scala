@@ -484,16 +484,17 @@ abstract class Parser(
           enums += r
           fdts += r
           break = false
-        }
 
-        r = EnumPool(tid, nextName, null, pb.enumMake(ki));
-        tid += 1
-        ki += 1
-        enums += r
-        SIFA(nsID) = r;
-        nsID += 1
-        nextName = pb.enumName(ki);
-        cmp = if (null != nextName) Parser.compare(name, nextName) else -1
+        } else {
+          r = EnumPool(tid, nextName, null, pb.enumMake(ki));
+          tid += 1
+          ki += 1
+          enums += r
+          SIFA(nsID) = r;
+          nsID += 1
+          nextName = pb.enumName(ki);
+          cmp = if (null != nextName) Parser.compare(name, nextName) else -1
+        }
       }
     }
     // create remaining known enums
@@ -583,14 +584,14 @@ abstract class Parser(
       if (null == f) {
         // no known fields left, so it is obviously unknown
         f = new LazyField(t, name, nextFieldID, p);
-      }
 
-      nextFieldID += 1
+        nextFieldID += 1
 
-      // increase maxDeps
-      f.t match {
-        case t : HullType[_] ⇒ t.maxDeps += 1
-        case _               ⇒
+        // increase maxDeps
+        f.t match {
+          case t : HullType[_] ⇒ t.maxDeps += 1
+          case _               ⇒
+        }
       }
 
       f.restrictions.asInstanceOf[HashSet[Any]] ++= rest.asInstanceOf[HashSet[Any]]
