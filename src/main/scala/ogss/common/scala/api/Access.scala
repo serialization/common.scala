@@ -51,7 +51,7 @@ trait Access[T <: Obj] extends GeneralAccess[T] {
   /**
    * @return an iterator over all field declarations, even those provided by the binary skill file
    */
-  def fields : StaticFieldIterator
+  def fields : StaticFieldIterator[T]
 
   /**
    * @return an iterator over all field declarations, even those provided by the binary skill file, including fields

@@ -29,6 +29,8 @@ case object Bool extends FieldType[Boolean](0) {
 
   override def w(v : Boolean, out : OutStream) =
     throw new NoSuchMethodError("the caller has to wrap out!")
+  
+  override def typeCheck(x : Any) : Boolean = x.isInstanceOf[Boolean]
 
   override def toString = "bool"
 }

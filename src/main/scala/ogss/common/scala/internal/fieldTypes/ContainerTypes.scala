@@ -62,6 +62,11 @@ final class ArrayType[T](
 
   override val name = base + "[]"
 
+  override def typeCheck(x : Any) : Boolean = x match {
+    case xs : ArrayBuffer[_] ⇒ xs.forall(base.typeCheck)
+    case _                   ⇒ false
+  }
+
   protected[internal] final override def allocateInstances(count : Int, in : MappedInStream) : Int = {
     // check for blocks
     if (count >= Constants.HD_Threshold) {
@@ -144,6 +149,11 @@ final class ListType[T](
 ) extends SingleArgumentType[ListBuffer[T], T](_typeID, _base, 1) {
 
   override val name = s"list<$base>"
+
+  override def typeCheck(x : Any) : Boolean = x match {
+    case xs : ListBuffer[_] ⇒ xs.forall(base.typeCheck)
+    case _                  ⇒ false
+  }
 
   protected[internal] final override def allocateInstances(count : Int, in : MappedInStream) : Int = {
     // check for blocks
@@ -228,6 +238,11 @@ final class SetType[T](
 
   override val name = s"set<$base>"
 
+  override def typeCheck(x : Any) : Boolean = x match {
+    case xs : HashSet[_] ⇒ xs.forall(base.typeCheck)
+    case _               ⇒ false
+  }
+
   protected[internal] final override def allocateInstances(count : Int, in : MappedInStream) : Int = {
     // check for blocks
     if (count >= Constants.HD_Threshold) {
@@ -311,6 +326,11 @@ final class MapType[K, V](
 ) extends ContainerType[HashMap[K, V]](_typeID) {
 
   override val name = s"map<$keyType,$valueType>"
+
+  override def typeCheck(x : Any) : Boolean = x match {
+    case xs : HashMap[_, _] ⇒ xs.keys.forall(keyType.typeCheck) && xs.values.forall(valueType.typeCheck)
+    case _                  ⇒ false
+  }
 
   protected[internal] final override def allocateInstances(count : Int, in : MappedInStream) : Int = {
     // check for blocks

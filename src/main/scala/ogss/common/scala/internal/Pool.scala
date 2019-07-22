@@ -16,6 +16,7 @@
 package ogss.common.scala.internal
 
 import scala.collection.mutable.ArrayBuffer
+import scala.reflect.ClassTag
 
 import ogss.common.scala.api.Access
 import ogss.common.scala.api.OGSSException
@@ -60,7 +61,7 @@ abstract class Pool[T <: Obj](
   /**
    * pointer to base-pool-managed data array
    */
-  protected[internal] var data : Array[T] = _
+  protected[internal] var data : Array[Obj] = _
 
   /**
    * names of known fields, the actual field information is given in the generated addKnownFiled method.
@@ -92,7 +93,7 @@ abstract class Pool[T <: Obj](
    */
   protected[internal] val dataFields = new ArrayBuffer[Field[_, T]]
 
-  final override def fields = new StaticFieldIterator(this)
+  final override def fields = new StaticFieldIterator[T](this)
   final override def allFields = new FieldIterator(this)
 
   /**
@@ -156,14 +157,14 @@ abstract class Pool[T <: Obj](
     val index = ID - 1;
 
     if (null == data || (index < 0 | data.length <= index)) null.asInstanceOf[T]
-    else data(index)
+    else data(index).asInstanceOf[T]
   }
 
   final override def r(in : InStream) : T = {
     val index = in.v32() - 1;
 
     if (index < 0 | data.length <= index) null.asInstanceOf[T]
-    else data(index)
+    else data(index).asInstanceOf[T]
   }
 
   final override def w(ref : T, out : OutStream) : Boolean = {
@@ -224,6 +225,18 @@ abstract class Pool[T <: Obj](
     }
   }
 
+  private[internal] final def check {
+    for (i ← iterator) {
+      if (!i.isInstanceOf[T]) {
+        superPool.owner.checkErrors.add(s"$i is not an instance of class $name")
+      } else {
+        for (f ← fields) {
+          f.check(i)
+        }
+      }
+    }
+  }
+
   final override def iterator = new DynamicDataIterator(this)
   final override def inTypeOrder = new TypeOrderIterator(this)
 
@@ -235,14 +248,14 @@ abstract class Pool[T <: Obj](
   /**
    * Create the known sub pool with argument local id. Return null, if id is invalid.
    */
-  protected[internal] def makeSub(ID : Int, index : Int) : Pool[_ >: T <: Obj] = null
+  protected[internal] def makeSub(ID : Int, index : Int) : Pool[_ <: T] = null
 
   /**
    * Create an unknown sub pool with the argument name
    */
-  protected[internal] def makeSub(index : Int, name : String) : Pool[_ >: T <: Obj] =
+  protected[internal] def makeSub(index : Int, name : String) : Pool[_ <: T] =
     new SubPool[UnknownObject](index, name, classOf[UnknownObject],
-      this.asInstanceOf[Pool[Obj]]).asInstanceOf[Pool[_ >: T <: Obj]]
+      this.asInstanceOf[Pool[Obj]]).asInstanceOf[Pool[T]]
 }
 
 object Pool {

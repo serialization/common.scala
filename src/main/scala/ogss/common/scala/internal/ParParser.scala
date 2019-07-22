@@ -203,7 +203,7 @@ final class ParParser(
         barrier.release();
         return ;
       }
-      val block = if (f.owner.cachedSize >= Constants.FD_Threshold) in.v32 else 0
+      val block = if (f.owner.cachedSize > Constants.FD_Threshold) in.v32 else 0
 
       var ex : OGSSException = null
       val owner = f.owner;

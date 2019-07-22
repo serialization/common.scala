@@ -41,14 +41,14 @@ class DistributedField[T, Ref <: Obj](
    *
    * @note valid iff data != null (lazy field will reuse this beforeallocation of data)
    */
-  private[internal] var firstID = 0
+  private[internal] var firstID = owner.bpo + 1
 
   /**
    * data holds pointers in [firstID; lastID[
    *
    * @note valid iff data != null (lazy field will reuse this before allocation of data)
    */
-  private[internal] var lastID = 0
+  private[internal] var lastID = firstID + owner.cachedSize
 
   /**
    * field data corresponding to Pool.data
@@ -63,19 +63,30 @@ class DistributedField[T, Ref <: Obj](
   private[internal] val newData = new IdentityHashMap[Ref, T]
 
   override def get(ref : Obj) : T = {
-    val ID = ref._ID - 1
-    if (ID < 0)
-      return newData.get(ref)
+    val ID = ref._ID
+    if (ID <= 0) {
+      var r = newData.get(ref)
+      if (null == r & t.typeID < 8) {
+        r = FieldType.defaultValue(t).asInstanceOf[T]
+        newData.put(ref.asInstanceOf[Ref], r)
+      }
+      return r
+    }
 
     if (ID >= lastID)
       throw new IndexOutOfBoundsException("illegal access to distributed field");
 
-    return data(ID - firstID).asInstanceOf[T]
+    var r = data(ID - firstID).asInstanceOf[T]
+    if (null == r & t.typeID < 8) {
+      r = FieldType.defaultValue(t).asInstanceOf[T]
+      data(ID - firstID) = r
+    }
+    return r
   }
 
   override def set(ref : Obj, value : T) {
-    val ID = ref._ID - 1
-    if (ID < 0)
+    val ID = ref._ID
+    if (ID <= 0)
       newData.put(ref.asInstanceOf[Ref], value)
 
     if (ID >= lastID)
@@ -85,15 +96,17 @@ class DistributedField[T, Ref <: Obj](
   }
 
   override def read(begin : Int, end : Int, in : MappedInStream) {
-    // we fill in data and data is nullptr at this point, so we have to allocate it first
-    firstID = begin;
-    lastID = end;
-    val high = end - begin;
-    var i = 0;
-    data = new Array[Any](high)
+    // data could not have been initialized yet
+    synchronized {
+      if (null == data)
+        data = new Array[Any](lastID - firstID)
+    }
+
+    val high = end - firstID;
+    var i = begin - firstID;
     while (i != high) {
-      data(i) = t.r(in)
       i += 1
+      data(i) = t.r(in)
     }
   }
 

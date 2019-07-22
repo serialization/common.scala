@@ -45,4 +45,6 @@ trait GeneralAccess[T] extends FieldType[T] with Iterable[T] {
    * @note This is only usable for instances with IDs and for valid IDs. This function is unrelated to Collection.get
    */
   def get(ID : Int) : T
+
+  final override def toString : String = name
 }

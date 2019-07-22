@@ -107,16 +107,20 @@ abstract class StateInitializer protected (
           case c : SingleArgumentType[_, _] ⇒ {
             c.base match {
               case b : HullType[_] ⇒ b.maxDeps += 1
+              case _               ⇒
             }
           }
           case c : MapType[_, _] ⇒ {
             c.keyType match {
               case b : HullType[_] ⇒ b.maxDeps += 1
+              case _               ⇒
             }
             c.valueType match {
               case b : HullType[_] ⇒ b.maxDeps += 1
+              case _               ⇒
             }
           }
+          case _ ⇒
         }
       }
     }

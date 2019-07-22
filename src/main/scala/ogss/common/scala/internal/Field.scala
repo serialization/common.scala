@@ -21,6 +21,8 @@ import scala.collection.mutable.HashSet
 import ogss.common.streams.MappedInStream
 import ogss.common.streams.BufferedOutStream
 import ogss.common.scala.internal.restrictions.FieldRestriction
+import scala.collection.mutable.HashMap
+import scala.collection.mutable.Iterable
 
 /**
  * Actual implementation as used by all bindings.
@@ -33,6 +35,7 @@ abstract class Field[T, Ref <: Obj](
   val ID :             Int,
   override val owner : Pool[Ref]
 ) extends FieldAccess[T] {
+  assert(null != t)
 
   // register field
   if (ID < 0)
@@ -53,19 +56,28 @@ abstract class Field[T, Ref <: Obj](
   val restrictions = new HashSet[FieldRestriction[T]]
 
   /**
-   * Check consistency of restrictions on this field.
+   * Check consistency of restrictions on this field. Also, check that stored
+   * values belong to the same state and that these values are type-correct.
    */
-  private[internal] final def check() {
+  private[internal] final def check(x : Ref) {
     this match {
       case self : LazyField[T, Ref] ⇒ self.ensureLoaded
       case _                        ⇒
     }
 
-    if (!restrictions.isEmpty)
-      for (
-        x ← owner if !x.isDeleted;
-        r ← restrictions
-      ) r.check(get(x));
+    if (!x.isDeleted) {
+      // check restrictions
+      for (r ← restrictions) r.check(get(x));
+
+      // ensure that values are contained in this state iff they could be serialized
+      if (!this.isInstanceOf[AutoField[T, Ref]])
+        Field.contained(get(x), owner.owner, s"${x.getClass.getName}#${x._ID}.$name")
+
+      // type check the value
+      if (!t.typeCheck(get(x))) {
+        owner.owner.checkErrors.add(s"${x.getClass.getName}#${x._ID}.$name stores a value which is not well-typed")
+      }
+    }
   }
 
   /**
@@ -83,4 +95,16 @@ abstract class Field[T, Ref <: Obj](
   def write(i : Int, h : Int, out : BufferedOutStream) : Boolean
 
   override def toString = t.toString + " " + name
+}
+
+object Field {
+  def contained(v : Any, in : State, from : String) : Unit = v match {
+    case null    ⇒ // ok
+    case v : Obj ⇒ if (!in.contains(v)) in.checkErrors.add(s"$from refers extern Object ${v.getClass.getName}#${v._ID}")
+    case v : HashMap[_, _] ⇒
+      v.keySet.foreach(contained(_, in, from))
+      v.values.foreach(contained(_, in, from))
+    case v : Iterable[_] ⇒ v.foreach(contained(_, in, from))
+    case _               ⇒ // not an issue
+  }
 }

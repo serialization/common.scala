@@ -18,6 +18,7 @@ package ogss.common.scala.internal
 import java.io.IOException
 
 import ogss.common.streams.MappedInStream
+import scala.collection.mutable.ArrayBuffer
 
 /**
  * The field is distributed and loaded on demand. Unknown fields are lazy as well.
@@ -34,63 +35,73 @@ class LazyField[T, Ref <: Obj](
   _index : Int,
   _owner : Pool[Ref]
 ) extends DistributedField[T, Ref](_t, _name, _index, _owner) {
+  private case class Chunk(val begin : Int, val end : Int, val in : MappedInStream)
 
   // is loaded <-> input == null
-  var input : MappedInStream = null
+  private var chunks : ArrayBuffer[Chunk] = null
 
   private final def load {
-    // we recycled first and last ID, so it is already set as intended
-    val high = lastID - firstID;
-    var i = 0;
-    data = new Array[Any](high)
-    while (i != high) {
-      data(i) = t.r(input)
-      i += 1
+    for (Chunk(begin, end, in) ← chunks) {
+      super.read(begin, end, in)
+
+      if (!in.eof())
+        throw new IOException("lazy read task did not consume InStream");
     }
 
-    if (!input.eof())
-      throw new IOException("lazy read task did not consume InStream");
-
-    input = null
+    chunks = null
   }
 
   // required to ensure that data is present before state reorganization
   final def ensureLoaded {
-    if (null != input)
+    if (null != chunks)
       load
   }
 
   final override def get(ref : Obj) : T = {
-    val ID = ref._ID - 1
-    if (ID < 0)
-      return newData.get(ref).asInstanceOf[T]
-
-    if (null != input)
-      load
+    val ID = ref._ID
+    if (ID <= 0) {
+      var r = newData.get(ref)
+      if (null == r & t.typeID < 8) {
+        r = FieldType.defaultValue(t).asInstanceOf[T]
+        newData.put(ref.asInstanceOf[Ref], r)
+      }
+      return r
+    }
 
     if (ID >= lastID)
       throw new IndexOutOfBoundsException("illegal access to distributed field");
 
-    return data(ID - firstID).asInstanceOf[T]
+    if (null != chunks)
+      load
+
+    var r = data(ID - firstID).asInstanceOf[T]
+    if (null == r & t.typeID < 8) {
+      r = FieldType.defaultValue(t).asInstanceOf[T]
+      data(ID - firstID) = r
+    }
+    return r
   }
 
   final override def set(ref : Obj, value : T) {
-    val ID = ref._ID - 1
-    if (ID < 0)
+    val ID = ref._ID
+    if (ID <= 0)
       newData.put(ref.asInstanceOf[Ref], value)
-
-    if (null != input)
-      load
 
     if (ID >= lastID)
       throw new IndexOutOfBoundsException("illegal access to distributed field");
+
+    if (null != chunks)
+      load
 
     data(ID - firstID) = value
   }
 
   final override def read(i : Int, h : Int, in : MappedInStream) {
-    firstID = i;
-    lastID = h;
-    input = in;
+    synchronized {
+      if (null == chunks) {
+        chunks = new ArrayBuffer
+      }
+      chunks += Chunk(i, h, in)
+    }
   }
 }

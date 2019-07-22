@@ -39,6 +39,8 @@ case object I8 extends IntegerType[Byte](1) {
     return 0 == v
   }
 
+  override def typeCheck(x : Any) : Boolean = x.isInstanceOf[Byte]
+
   override def toString = "i8"
 }
 
@@ -54,6 +56,8 @@ case object I16 extends IntegerType[Short](2) {
     out.i16(v)
     return 0 == v
   }
+
+  override def typeCheck(x : Any) : Boolean = x.isInstanceOf[Short]
 
   override def toString = "i16"
 }
@@ -71,6 +75,8 @@ case object I32 extends IntegerType[Int](3) {
     return 0 == v
   }
 
+  override def typeCheck(x : Any) : Boolean = x.isInstanceOf[Int]
+
   override def toString = "i32"
 }
 
@@ -87,6 +93,8 @@ case object I64 extends IntegerType[Long](4) {
     return 0 == v
   }
 
+  override def typeCheck(x : Any) : Boolean = x.isInstanceOf[Long]
+
   override def toString = "i64"
 }
 
@@ -102,6 +110,8 @@ case object V64 extends IntegerType[Long](5) {
     out.v64(v)
     return 0 == v
   }
+
+  override def typeCheck(x : Any) : Boolean = x.isInstanceOf[Long]
 
   override def toString = "v64"
 }

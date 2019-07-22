@@ -46,6 +46,8 @@ final class StringPool(
 
 ) extends HullType[String](9) {
 
+  override def typeCheck(x : Any) : Boolean = x.isInstanceOf[String]
+
   /**
    * keep the mapped in stream open until all strings have been read from input HS
    */

@@ -25,13 +25,15 @@ import ogss.common.scala.api.GeneralAccess
 import ogss.common.scala.internal.fieldTypes.ContainerType
 import ogss.common.scala.api.Mode
 import ogss.common.scala.api.Write
+import java.util.concurrent.ConcurrentLinkedQueue
+import scala.collection.mutable.ArrayBuffer
 
 abstract class State(_init : StateInitializer) extends AutoCloseable {
 
   /**
    * the guard of the file must not contain \0-characters.
    */
-  var guard : String
+  var guard : String = _init.guard
 
   // types by OGSS name
   private var TBN : HashMap[String, FieldType[_]] = null
@@ -88,7 +90,7 @@ abstract class State(_init : StateInitializer) extends AutoCloseable {
 
   // field types by statically known ID
   // note to self: try to represent this as 0-size array in C++ to bypass unions or other hacks
-  protected[internal] val SIFA : Array[FieldType[_]]
+  protected[internal] val SIFA : Array[FieldType[_]] = _init.SIFA
 
   /**
    * @return the type name of the type of an object.
@@ -108,7 +110,7 @@ abstract class State(_init : StateInitializer) extends AutoCloseable {
   /**
    * @return iterator over all user types
    */
-  final def allTypes : Iterable[_ <: Access[_ <: Obj]] = classes.asInstanceOf[Iterable[_ <: Access[_ <: Obj]]]
+  final def allTypes : Iterator[_ <: Access[_ <: Obj]] = classes.iterator
 
   /**
    * Types required for reflective IO
@@ -139,7 +141,7 @@ abstract class State(_init : StateInitializer) extends AutoCloseable {
       return ref == p.newObjects(-1 - ID)
     } catch {
       // out of bounds or similar mean its not one of ours
-      case _ ⇒ return false;
+      case _ : Throwable ⇒ return false;
     }
   }
 
@@ -219,32 +221,39 @@ abstract class State(_init : StateInitializer) extends AutoCloseable {
   }
 
   /**
+   * A queue of errors filled by calls to check.
+   */
+  private[internal] def checkErrors = new ConcurrentLinkedQueue[String]
+
+  /**
    * Checks consistency of the current state of the file.
    *
    * @note it is possible to fix the inconsistency and re-check without breaking the on-disk representation
    * @throws OGSSException
    *             if an inconsistency is found
    */
-  final def check {
-    ???
-    // TODO type checks!
-    // TODO type restrictions
-    // TODO make pools check fields, because they can optimize checks per
+  final def check : Unit = checkErrors.synchronized {
+    // ensure that old errors are gone
+    checkErrors.clear
 
-    // TODO check that idMaps do not contain unintended null-entries
+    // let pools perform their checks
+    for (p ← classes.par)
+      p.check
 
-    // instance and remove redispatching, if no
-    // restrictions apply anyway
-    for (p ← classes; f ← p.dataFields)
-      try {
-        f.check();
-        // TODO check sollte eine fehlerliste erzeugen anstatt dieser ogss exceptions und dann eine geordnete exception produzieren
-      } catch {
-        case e : OGSSException ⇒
-          throw new OGSSException(
-            String.format("check failed in %s.%s:\n  %s", p.name, f.name, e.getMessage()), e
-          );
-      }
+    // type check interfaces
+    SIFA.foreach {
+      case p : InterfacePool[_, _] ⇒ p.check
+      case _                       ⇒
+    }
+
+    // report errors if any
+    if (!checkErrors.isEmpty) {
+      val xs = new ArrayBuffer[String]
+      checkErrors.iterator.forEachRemaining(xs += _)
+      checkErrors.clear
+
+      throw new OGSSException(xs.mkString(s"check produced ${xs.size} errors:\n  ", "\n  ", ""))
+    }
   }
 
   /**
@@ -253,7 +262,7 @@ abstract class State(_init : StateInitializer) extends AutoCloseable {
    * @todo implement!
    * @throws OGSSException
    */
-  final def closure() {
+  final def closure {
     ???
   }
 

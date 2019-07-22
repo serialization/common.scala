@@ -27,6 +27,8 @@ final class SubPool[T <: Obj](
   _super :          Pool[_ >: T <: Obj]
 ) extends Pool[T](_poolIndex, _name, _super, 0) {
 
+  override def typeCheck(x : Any) : Boolean = null == x || cls.isAssignableFrom(x.getClass())
+
   protected[internal] override def makeSub(index : Int, name : String) = new SubPool(index, name, cls, this)
 
   protected[internal] override def allocateInstances {
@@ -42,7 +44,7 @@ final class SubPool[T <: Obj](
     }
   }
 
-  override def make() = {
+  override def make = {
     val r = cls.getConstructor(classOf[Pool[_]], classOf[Int]).newInstance(this, Int.box(-1 - newObjects.size))
     newObjects += r
     r

@@ -39,6 +39,8 @@ case object F32 extends FloatType[Float](6) {
     return .0f == v
   }
 
+  override def typeCheck(x : Any) : Boolean = x.isInstanceOf[Float]
+
   override def toString = "f32"
 }
 
@@ -54,6 +56,8 @@ case object F64 extends FloatType[Double](7) {
     out.f64(v)
     return .0 == v
   }
+
+  override def typeCheck(x : Any) : Boolean = x.isInstanceOf[Double]
 
   override def toString = "f64"
 }

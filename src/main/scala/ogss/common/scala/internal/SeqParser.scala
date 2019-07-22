@@ -41,7 +41,9 @@ final class SeqParser(
     /**
      * *************** * T Class * ****************
      */
-    typeDefinitions;
+    {
+      typeDefinitions
+    };
 
     // calculate cached size and next for all pools
     {
@@ -83,17 +85,23 @@ final class SeqParser(
           }
         }
       }
-    }
+    };
 
     /**
      * *************** * T Container * ****************
      */
-    TContainer
+    {
+      TContainer
+    };
 
     /**
      * *************** * T Enum * ****************
      */
-    TEnum
+    {
+      TEnum
+    };
+
+    assert(SIFA.forall(null != _))
 
     /**
      * *************** * F * ****************
@@ -133,7 +141,7 @@ final class SeqParser(
 
         }
         case fd : Field[_, _] ⇒ {
-          val block = if (fd.owner.cachedSize >= Constants.FD_Threshold) map.v32() else 0
+          val block = if (fd.owner.cachedSize > Constants.FD_Threshold) map.v32() else 0
 
           // create job with adjusted size that corresponds to the * in the specification (i.e. exactly the data)
           jobs += new ReadTask(block, fd, map)

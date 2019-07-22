@@ -28,7 +28,7 @@ final class TypeOrderIterator[T <: Obj](_p : Pool[T]) extends Iterator[T] {
       ts.next
     }
     if (ts.hasNext)
-      new StaticDataIterator(ts.get)
+      new StaticDataIterator(ts.next)
     else
       null
   }
@@ -43,7 +43,7 @@ final class TypeOrderIterator[T <: Obj](_p : Pool[T]) extends Iterator[T] {
           ts.next
         }
         if (ts.hasNext)
-          new StaticDataIterator(ts.get)
+          new StaticDataIterator(ts.next)
         else
           null
       }

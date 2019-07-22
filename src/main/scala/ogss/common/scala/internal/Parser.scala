@@ -68,7 +68,7 @@ abstract class Parser(
    * Turns a field type into a preliminary type information. In case of user types, the declaration of the respective
    * user type may follow after the field declaration.
    */
-  final def fieldType : FieldType[_] = {
+  private final def fieldType() : FieldType[_] = {
     in.v32() match {
       case 0      ⇒ Bool
       case 1      ⇒ I8
@@ -84,75 +84,25 @@ abstract class Parser(
     }
   }
 
-  final def typeRestrictions(count : Int) : HashSet[TypeRestriction[_]] = {
+  final def typeAttribute(count : Int) : HashSet[TypeRestriction[_]] = {
     val r = new HashSet[TypeRestriction[_]]
     // parse count many entries
     var i = count
     while (i != 0) {
       i -= 1
-
-      in.v32() match {
-        case 0 ⇒
-        // Unique
-        case 1 ⇒
-        // Singleton
-        case 2 ⇒
-        // Monotone
-
-        case id ⇒
-          throw new ParseException(
-            s"Found unknown type restriction $id. Please regenerate your binding, if possible.", in
-          );
-      }
+      throw new ParseException(s"Serialized type attributes are currently unsupported.", in)
     }
     r
   }
 
-  final def fieldRestrictions(count : Int, t : FieldType[_]) : HashSet[FieldRestriction[_]] = {
+  final def fieldAttribute(count : Int, t : FieldType[_]) : HashSet[FieldRestriction[_]] = {
     val r = new HashSet[FieldRestriction[_]]
 
     var i = count
     while (0 != i) {
       i -= 1
-      in.v32() match {
 
-        case 0 ⇒
-          t match {
-            case t : ByRefType[_] ⇒ r += ??? //NonNull
-            case _                ⇒ throw new ParseException("Nonnull restriction on non-refernce type: $t.", in)
-          }
-
-        case 1 ⇒
-          // TODO do something wit the value
-          t match {
-            case t : ByRefType[_] ⇒
-              // TODO typeId -> ref
-              in.v32();
-            case t ⇒ t.r(in)
-          }
-
-        case 3 ⇒ {
-          val attr = ??? //Range.make(t.typeID, in);
-          if (null == attr)
-            throw new ParseException("Type $t cannot be range restricted!", in)
-          r += attr
-        }
-
-        case 5 ⇒ {
-          // TODO coding
-          // string.get
-          in.v32();
-        }
-
-        case 7 ⇒ {
-          // TODO CLP
-        }
-
-        case id ⇒
-          throw new ParseException(
-            "Found unknown field restriction $id. Please regenerate your binding, if possible.", in
-          );
-      }
+      throw new ParseException(s"Serialized field attributes are currently unsupported.", in)
     }
     r
   }
@@ -179,7 +129,7 @@ abstract class Parser(
     // file state
     var name : String = null;
     var count = 0;
-    var superDef : Pool[_] = null;
+    var superDef : Pool[_ <: Obj] = null;
     var bpo = 0;
 
     var moreFile = false
@@ -189,6 +139,7 @@ abstract class Parser(
     }) {
       // read next pool from file if required
       if (moreFile) {
+
         // name
         name = strings.idMap(in.v32)
 
@@ -198,7 +149,7 @@ abstract class Parser(
         // attr
         val attr = {
           val rc = in.v32
-          if (0 == rc) new HashSet[TypeRestriction[_]] else typeRestrictions(rc)
+          if (0 == rc) new HashSet[TypeRestriction[_]] else typeAttribute(rc)
         }
 
         // super
@@ -211,7 +162,7 @@ abstract class Parser(
             throw new ParseException(s"""Type $name refers to an ill-formed super type.
   found: $superID; current number of other types: ${fdts.size}""", in);
           } else {
-            superDef = fdts(superID - 1).asInstanceOf[Pool[_]]
+            superDef = fdts(superID - 1).asInstanceOf[Pool[_ <: Obj]]
             bpo = in.v32
           }
         }
@@ -349,9 +300,10 @@ abstract class Parser(
       // add a null value for each data field to ensure that the temporary size of data fields matches those
       // from file
       var fields = in.v32();
-      while (fields != 0)
+      while (fields != 0) {
         fields -= 1
-      result.dataFields += null
+        result.dataFields += null
+      }
 
       TCls -= 1
     }
@@ -363,7 +315,7 @@ abstract class Parser(
     // KCC index
     var ki = 0;
     // @note it is always possible to construct the next kcc from SIFA
-    var kcc = pb.kcc(ki);
+    var kcc = pb.kcc(0);
     var kkind = 0;
     var kb1 : FieldType[_] = null
     var kb2 : FieldType[_] = null
@@ -382,8 +334,8 @@ abstract class Parser(
       count -= 1
 
       val fkind = in.i8
-      val fb1 = fieldType
-      val fb2 = if (3 == fkind) fieldType else null
+      val fb1 = fieldType()
+      val fb2 = if (3 == fkind) fieldType() else null
       val fucc = Parser.toUCC(fkind, fb1, fb2);
 
       var r : ContainerType[_] = null
@@ -454,6 +406,38 @@ abstract class Parser(
       }
       fields += r
       fdts += r
+    }
+
+    // construct remaining known containers
+    while (-1 != kcc) {
+      val r : ContainerType[_] = kkind match {
+        case 0 ⇒ new ArrayType(tid, kb1);
+        case 1 ⇒ new ListType(tid, kb1);
+        case 2 ⇒ new SetType(tid, kb1);
+        case 3 ⇒ new MapType(tid, kb1, kb2);
+      }
+      tid += 1
+      SIFA(nsID) = r;
+      nsID += 1
+      r.fieldID = nextFieldID
+      nextFieldID += 1
+      containers += r
+
+      // check UCC order
+      if (lastUCC > kucc) {
+        throw new ParseException("File is not UCC-ordered.", in);
+      }
+      lastUCC = kucc;
+
+      // move to next kcc
+      ki += 1
+      kcc = pb.kcc(ki);
+      if (-1 != kcc) {
+        kkind = (kcc >> 30) & 3;
+        kb1 = SIFA(kcc & 0x7FFF)
+        kb2 = if (3 == kkind) SIFA((kcc >> 15) & 0x7FFF) else null
+        kucc = Parser.toUCC(kkind, kb1, kb2);
+      }
     }
   }
 
@@ -547,7 +531,7 @@ abstract class Parser(
       val t = fieldType
       val rest = {
         val rc = in.v32
-        if (0 == rc) new HashSet[FieldRestriction[_]] else fieldRestrictions(rc, t)
+        if (0 == rc) new HashSet[FieldRestriction[_]] else fieldAttribute(rc, t)
       }
       var f : Field[_, _] = null
 

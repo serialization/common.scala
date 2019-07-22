@@ -47,4 +47,28 @@ abstract class FieldType[T](_typeID : Int) extends ogss.common.scala.api.FieldTy
    * @return true iff a default value was written
    */
   def w(data : T, out : OutStream) : Boolean
+
+  /**
+   * Check if a value is actually of the required type.
+   * This function is necessary to overcome restrictions of type erasure.
+   */
+  def typeCheck(v : Any) : Boolean
+}
+
+object FieldType {
+  /**
+   * Create a nonnull boxed default value to work around autounboxing NPE
+   * madness
+   */
+  final def defaultValue(t : FieldType[_]) : Any = t.typeID match {
+    case 0 ⇒ false
+    case 1 ⇒ 0.toByte
+    case 2 ⇒ 0.toShort
+    case 3 ⇒ 0.toInt
+    case 4 ⇒ 0.toLong
+    case 5 ⇒ 0.toLong
+    case 6 ⇒ 0.toFloat
+    case 7 ⇒ 0.toDouble
+    case _ ⇒ null
+  }
 }

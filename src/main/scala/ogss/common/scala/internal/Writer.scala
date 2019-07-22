@@ -336,7 +336,7 @@ final class WCompress(
     val is = new TypeOrderIterator(base);
     while (is.hasNext) {
       val i = is.next
-      if (i.ID != 0) {
+      if (i._ID != 0) {
         d(pos) = i;
         pos += 1
         i._ID = pos;
@@ -447,7 +447,7 @@ final class WFT(
       // iff we have blockID zero we may need to split
       if (0 == block) {
         // split large FD blocks into blocks
-        if (count >= Constants.FD_Threshold) {
+        if (count > Constants.FD_Threshold) {
           hasblocks = true;
 
           // we have to fork this task
@@ -585,7 +585,7 @@ final class WHT(
               t.deps -= 1
               if (0 == t.deps) {
                 // execute task in this thread to avoid unnecessary overhead
-                tail = new WHT(self, t);
+                global.execute(new WHT(self, t))
               }
             }
             case _ ⇒

@@ -69,5 +69,7 @@ final class AnyRefType(
     }
   }
 
+  override def typeCheck(x : Any) : Boolean = x.isInstanceOf[Obj]
+
   override def toString = "anyRef"
 }

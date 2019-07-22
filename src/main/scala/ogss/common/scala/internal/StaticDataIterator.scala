@@ -44,7 +44,7 @@ final class StaticDataIterator[T <: Obj](val p : Pool[T]) extends Iterator[T] {
         index = 0;
         last = p.newObjects.size
       }
-      r
+      r.asInstanceOf[T]
     } else {
 
       val r = p.newObjects(index);

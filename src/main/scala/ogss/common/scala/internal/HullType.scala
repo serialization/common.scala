@@ -129,6 +129,4 @@ abstract class HullType[T <: AnyRef](_typeID : Int) extends ByRefType[T](_typeID
   protected[internal] def allocateInstances(count : Int, map : MappedInStream) : Int
 
   final override def size : Int = idMap.size - 1
-  
-  override def toString = name;
 }

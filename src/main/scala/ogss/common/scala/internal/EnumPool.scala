@@ -48,13 +48,15 @@ final class EnumPool[T <: Enumeration] private (
  */
   private val staticValues : Array[EnumProxy[T]]
 
-) extends FieldType[AnyRef](_tid) {
+) extends FieldType[AnyRef](_tid) with Iterable[EnumProxy[T]] {
 
   // set owner of our proxies
   for (p ← values)
     p._owner = this
 
   def proxy(target : T#Value) : EnumProxy[T] = staticValues(target.id)
+
+  override def iterator = values.iterator
 
   override def r(in : InStream) = fileValues(in.v32()) : AnyRef
 
@@ -71,6 +73,8 @@ final class EnumPool[T <: Enumeration] private (
     out.v64(id);
     return 0 == id;
   }
+
+  override def typeCheck(x : Any) : Boolean = x.isInstanceOf[T#Value]
 
   override def toString = name
 }
