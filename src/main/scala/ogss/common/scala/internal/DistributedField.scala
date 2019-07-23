@@ -125,7 +125,7 @@ class DistributedField[T, Ref <: Obj](
         if (0 != ID) {
           d(next) =
             if (ID < 0) newData.get(i)
-            else data((ID - 1) - firstID)
+            else data(ID - firstID)
           next += 1
         }
       }
