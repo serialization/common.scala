@@ -124,6 +124,7 @@ final class Writer(
       // set deps and calculate count
       for (c ← state.containers) {
         if (c.maxDeps != 0) {
+          c.resetSerialization
           c.deps = c.maxDeps;
           count += 1
         }
