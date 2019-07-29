@@ -15,13 +15,14 @@
  ******************************************************************************/
 package ogss.common.scala.internal
 
-import scala.collection.mutable.ArrayBuffer
 import java.util.IdentityHashMap
-import ogss.common.streams.MappedInStream
-import ogss.common.streams.InStream
-import ogss.common.streams.OutStream
-import ogss.common.streams.BufferedOutStream
+
+import scala.collection.mutable.ArrayBuffer
+
 import ogss.common.scala.api.GeneralAccess
+import ogss.common.streams.InStream
+import ogss.common.streams.MappedInStream
+import ogss.common.streams.OutStream
 
 /**
  * This type subsumes all types whose serialization uses a hull-field.
@@ -52,12 +53,6 @@ abstract class HullType[T <: AnyRef](_typeID : Int) extends ByRefType[T](_typeID
   var maxDeps = 0;
 
   /**
-   * The current number of pending blocks. 0 if the HD is not split into blocks. This number is only meaningful while
-   * writing a file.
-   */
-  var blocks = 0
-
-  /**
    * get object by ID
    */
   protected[internal] val idMap = new ArrayBuffer[T]
@@ -72,22 +67,6 @@ abstract class HullType[T <: AnyRef](_typeID : Int) extends ByRefType[T](_typeID
     idMap.clear();
     idMap += null.asInstanceOf[T]
   }
-
-  /**
-   * Read the hull data from the stream. Abstract, because the inner loop is type-dependent anyway.
-   *
-   * @note the fieldID is written by the caller
-   * @return true iff hull shall be discarded (i.e. it is empty)
-   */
-  protected[internal] def read(block : Int, map : MappedInStream) : Unit
-
-  /**
-   * Write the hull into the stream. Abstract, because the inner loop is type-dependent anyway.
-   *
-   * @note the fieldID is written by the caller
-   * @return true iff hull shall be discarded (i.e. it is empty)
-   */
-  protected[internal] def write(block : Int, out : BufferedOutStream) : Boolean
 
   /**
    * Return the id of the argument ref. This method is thread-safe. The id returned by this function does not change

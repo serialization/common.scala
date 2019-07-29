@@ -29,6 +29,7 @@ import ogss.common.scala.api.OGSSException
 import ogss.common.scala.Constants
 import ogss.common.scala.internal.fieldTypes.SingleArgumentType
 import ogss.common.scala.internal.fieldTypes.MapType
+import ogss.common.scala.internal.fieldTypes.ContainerType
 
 /**
  * Writes a state to disk.
@@ -245,6 +246,16 @@ final class Writer(
 
     out.close();
 
+    // check internal state
+    // all containers have been written or were not used
+    for (c ← state.containers if c.deps != 0) {
+      val e = new InternalError(s"$c has ${c.deps} of ${c.maxDeps}")
+      if (writeErrors != null)
+        writeErrors.addSuppressed(e)
+      else
+        writeErrors = e
+    }
+
     // report errors
     if (null != writeErrors) {
       throw new OGSSException("write failed", writeErrors);
@@ -370,7 +381,7 @@ final class WCompress(
  *
  * @author Timm Felden
  */
-abstract class WJob(
+sealed abstract class WJob(
   val self : Writer
 ) extends Runnable {
 
@@ -410,7 +421,7 @@ abstract class WJob(
       // printed to command line anyway, and we wont
       // be able to recover, because errors can only happen if
       // the OGSS implementation itself is broken
-      self.barrier.release();
+      self.barrier.release()
 
       if (null != tail)
         tail.run();
@@ -438,32 +449,32 @@ final class WFT(
 
   override def job(buffer : BufferedOutStream) {
 
-    val count = f.owner.cachedSize;
+    val size = f.owner.cachedSize
 
     var hasblocks = false
 
     // any empty field will be discarded
-    if (count != 0) {
+    if (size != 0) {
 
       // iff we have blockID zero we may need to split
       if (0 == block) {
         // split large FD blocks into blocks
-        if (count > Constants.FD_Threshold) {
+        if (size > Constants.FD_Threshold) {
           hasblocks = true;
 
           // we have to fork this task
-          var blockCount = count / Constants.FD_Threshold;
+          var blockCount = (size - 1) / Constants.FD_Threshold;
           // @note we increment await by blockCount - 1
-          self.synchronized {
-            self.awaitBuffers += blockCount
-            blockCount += 1
-          }
+          self.synchronized(self.awaitBuffers += blockCount)
+          blockCount += 1
 
           f.blocks = blockCount;
-          for (i ← 1 until blockCount) {
+          var i = 1
+          while (i < blockCount) {
             val job = new WFT(self, f);
             job.block = i;
             global.execute(job);
+            i += 1
           }
         }
       } else {
@@ -473,31 +484,32 @@ final class WFT(
       val owner = f.owner;
       val bpo = owner.bpo;
       var i = block * Constants.FD_Threshold;
-      var h = Math.min(count, i + Constants.FD_Threshold);
+      var h = Math.min(size, i + Constants.FD_Threshold);
       i += bpo;
       h += bpo;
 
       buffer.v64(f.ID);
-      if (count >= Constants.FD_Threshold) {
+      if (size > Constants.FD_Threshold) {
         buffer.v64(block);
       }
       discard = f.write(i, h, buffer);
 
+    } else {
+      hasblocks = false;
     }
 
-    val done = if (hasblocks) {
-      f.synchronized {
+    val done =
+      if (hasblocks) f.synchronized({
         f.blocks -= 1
         0 == f.blocks
-      }
-    } else {
-      true
-    }
+      })
+      else true
 
     if (done) {
       f.t match {
         case t : HullType[_] ⇒ t.synchronized {
           t.deps -= 1
+          assert(t.deps >= 0)
           if (0 == t.deps) {
             // execute task in this thread to avoid unnecessary overhead
             tail = new WHT(self, t);
@@ -515,8 +527,8 @@ final class WFT(
  * @author Timm Felden
  */
 final class WHT(
-  _self : Writer,
-  val t : HullType[_]
+  _self :  Writer,
+  val ht : HullType[_]
 ) extends WJob(_self) {
 
   /**
@@ -526,84 +538,96 @@ final class WHT(
   private var block = 0
 
   override def job(buffer : BufferedOutStream) {
-    buffer.v64(t.fieldID);
+    ht match {
+      case t : ContainerType[_] ⇒ {
+        var hasblocks = false
+        val size = t.IDs.size
+        discard = 0 == size
 
-    var hasblocks = false
+        if (!discard) {
+          // iff we have blockID zero we may need to split
+          if (0 == block) {
+            // split non-HS blocks that are too large into blocks
+            if (size > Constants.HD_Threshold) {
+              hasblocks = true;
+              // we have to fork this task
+              var blockCount = (size - 1) / Constants.HD_Threshold;
+              // @note we increment await by blockCount - 1
+              self.synchronized(self.awaitBuffers += blockCount)
+              blockCount += 1
 
-    // iff we have blockID zero we may need to split
-    if (0 == block) {
-      // split non-HS blocks that are too large into blocks
-      if (t.typeID != 9 && t.idMap.size >= Constants.HD_Threshold) {
-        hasblocks = true;
-        // we have to fork this task
-        var blockCount = t.idMap.size / Constants.HD_Threshold;
-        // @note we increment await by blockCount - 1
-        self.synchronized {
-          self.awaitBuffers += blockCount
-          blockCount += 1
+              t.blocks = blockCount;
+              var i = 1
+              while (i < blockCount) {
+                val job = new WHT(self, t);
+                job.block = i;
+                global.execute(job);
+                i += 1
+              }
+            }
+          } else {
+            hasblocks = true;
+          }
+
+          buffer.v64(t.fieldID);
+          buffer.v64(size);
+          if (size > Constants.HD_Threshold) {
+            buffer.v64(block);
+          }
+          val i = block * Constants.HD_Threshold;
+          val end = Math.min(size, i + Constants.HD_Threshold);
+          t.write(i, end, buffer);
         }
 
-        t.blocks = blockCount;
-        for (i ← 1 until blockCount) {
-          val job = new WHT(self, t);
-          job.block = i;
-          global.execute(job);
-        }
-      }
-    } else {
-      hasblocks = true;
-    }
+        val done =
+          if (hasblocks) t.synchronized({
+            t.blocks -= 1
+            0 == t.blocks
+          })
+          else true
 
-    discard = t.write(block, buffer);
+        if (done) {
+          ht match {
+            case ct : SingleArgumentType[_, _] ⇒ ct.base match {
+              case bt : HullType[_] ⇒ bt.synchronized {
+                bt.deps -= 1
+                assert(bt.deps >= 0)
+                if (0 == bt.deps) {
+                  // execute task in this thread to avoid unnecessary overhead
+                  tail = new WHT(self, bt);
+                }
+              }
+              case _ ⇒
+            }
 
-    val done = if (hasblocks) {
-      t.synchronized {
-        t.blocks -= 1
-        0 == t.blocks
-      }
-    } else {
-      true
-    }
-
-    if (done) {
-      t match {
-        case t : SingleArgumentType[_, _] ⇒ {
-          t.base match {
-            case t : HullType[_] ⇒ t.synchronized {
-              t.deps -= 1
-              if (0 == t.deps) {
-                // execute task in this thread to avoid unnecessary overhead
-                tail = new WHT(self, t);
+            case ct : MapType[_, _] ⇒ {
+              ct.keyType match {
+                case bt : HullType[_] ⇒ bt.synchronized {
+                  bt.deps -= 1
+                  assert(bt.deps >= 0)
+                  if (0 == bt.deps) {
+                    // execute task in this thread to avoid unnecessary overhead
+                    global.execute(new WHT(self, bt))
+                  }
+                }
+                case _ ⇒
+              }
+              ct.valueType match {
+                case bt : HullType[_] ⇒ bt.synchronized {
+                  bt.deps -= 1
+                  if (0 == bt.deps) {
+                    // execute task in this thread to avoid unnecessary overhead
+                    tail = new WHT(self, bt);
+                  }
+                }
+                case _ ⇒
               }
             }
             case _ ⇒
           }
-
         }
-        case t : MapType[_, _] ⇒ {
-          t.keyType match {
-            case t : HullType[_] ⇒ t.synchronized {
-              t.deps -= 1
-              if (0 == t.deps) {
-                // execute task in this thread to avoid unnecessary overhead
-                global.execute(new WHT(self, t))
-              }
-            }
-            case _ ⇒
-          }
-          t.valueType match {
-            case t : HullType[_] ⇒ t.synchronized {
-              t.deps -= 1
-              if (0 == t.deps) {
-                // execute task in this thread to avoid unnecessary overhead
-                tail = new WHT(self, t);
-              }
-            }
-            case _ ⇒
-          }
-        }
-        case _ ⇒
       }
+      case t : StringPool ⇒ discard = t.write(buffer)
     }
   }
 }

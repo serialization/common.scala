@@ -563,7 +563,7 @@ abstract class Parser(
             throw new Error;
           }
 
-          // else, it is a known fields not contained in the file
+          // else, it is a known field not contained in the file
           f = p.KFC(ki, SIFA, nextFieldID);
           ki += 1
           if (!f.isInstanceOf[AutoField[_, _]]) {
@@ -571,8 +571,8 @@ abstract class Parser(
 
             // increase maxDeps
             f.t match {
-              case t : HullType[_] ⇒ t.maxDeps += 1
-              case _               ⇒
+              case ht : HullType[_] ⇒ ht.maxDeps += 1
+              case _                ⇒
             }
           }
           f = null;
@@ -584,28 +584,35 @@ abstract class Parser(
       if (null == f) {
         // no known fields left, so it is obviously unknown
         f = new LazyField(t, name, nextFieldID, p);
+      }
 
+      nextFieldID += 1
+      fields += f
+
+      // increase maxDeps
+      f.t match {
+        case ht : HullType[_] ⇒ ht.maxDeps += 1
+        case _                ⇒
+      }
+
+      f.restrictions.asInstanceOf[HashSet[Any]] ++= rest.asInstanceOf[HashSet[Any]]
+      f = null
+    }
+
+    // create remaining known fields
+    while (null != p.KFN(ki)) {
+      val f = p.KFC(ki, SIFA, nextFieldID)
+      if (!f.isInstanceOf[AutoField[_, _]]) {
         nextFieldID += 1
 
         // increase maxDeps
         f.t match {
-          case t : HullType[_] ⇒ t.maxDeps += 1
-          case _               ⇒
+          case ht : HullType[_] ⇒ ht.maxDeps += 1
+          case _                ⇒
         }
       }
-
-      f.restrictions.asInstanceOf[HashSet[Any]] ++= rest.asInstanceOf[HashSet[Any]]
-
-      fields += f
+      ki += 1
     }
-
-    // create remaining auto fields
-    if (kfn != null)
-      do {
-        p.KFC(ki, SIFA, nextFieldID)
-        nextFieldID += 1
-        ki += 1
-      } while (null != p.KFN(ki))
   }
 
   /**

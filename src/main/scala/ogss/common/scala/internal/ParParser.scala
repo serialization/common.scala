@@ -24,6 +24,7 @@ import ogss.common.scala.Constants
 import java.nio.BufferUnderflowException
 import ogss.common.scala.api.PoolSizeMissmatchError
 import ogss.common.scala.api.OGSSException
+import ogss.common.scala.internal.fieldTypes.ContainerType
 
 /**
  * The parallel version of Parser.
@@ -153,11 +154,13 @@ final class ParParser(
 
                 // create hull read data task except for StringPool which is still lazy per element and
                 // eager per offset
-                if (!p.isInstanceOf[StringPool]) {
-                  // @note modification of the job queue requires synchronization
-                  jobs.synchronized {
-                    jobs += new HRT(p, block, map)
-                  }
+                p match {
+                  case p : ContainerType[_] ⇒
+                    // @note modification of the job queue requires synchronization
+                    jobs.synchronized {
+                      jobs += new HRT(p, block, map)
+                    }
+                  case _ ⇒
                 }
 
                 barrier.release();
@@ -239,7 +242,7 @@ final class ParParser(
    * @author Timm Felden
    */
   private final class HRT(
-    private val t :     HullType[_],
+    private val t :     ContainerType[_],
     private val block : Int,
     private val map :   MappedInStream
   ) extends Runnable {
@@ -247,7 +250,9 @@ final class ParParser(
     override def run {
       var ex : OGSSException = null;
       try {
-        t.read(block, map);
+        val i = block * Constants.HD_Threshold;
+        val end = Math.min(t.idMap.size - 1, i + Constants.HD_Threshold)
+        t.read(i, end, map);
       } catch {
         case t : OGSSException ⇒ ex = t;
         case t : Throwable     ⇒ ex = new OGSSException("internal error: unexpected foreign exception", t);

@@ -33,6 +33,28 @@ import ogss.common.streams.BufferedOutStream
  */
 sealed abstract class ContainerType[T <: AnyRef](_typeID : Int) extends HullType[T](_typeID) {
 
+  /**
+   * The current number of pending blocks. 0 if the HD is not split into blocks. This number is only meaningful while
+   * writing a file.
+   */
+  var blocks = 0
+
+  /**
+   * Read the hull data from the stream. Abstract, because the inner loop is type-dependent anyway.
+   *
+   * @note the fieldID is written by the caller
+   * @return true iff hull shall be discarded (i.e. it is empty)
+   */
+  protected[internal] def read(i : Int, end : Int, map : MappedInStream) : Unit
+
+  /**
+   * Write the hull into the stream. Abstract, because the inner loop is type-dependent anyway.
+   *
+   * @note the fieldID is written by the caller
+   * @return true iff hull shall be discarded (i.e. it is empty)
+   */
+  protected[internal] def write(i : Int, end : Int, out : BufferedOutStream) : Unit
+
   final override def get(ID : Int) : T = idMap(ID)
 
   final override def iterator = {
@@ -69,7 +91,7 @@ final class ArrayType[T](
 
   protected[internal] final override def allocateInstances(count : Int, in : MappedInStream) : Int = {
     // check for blocks
-    if (count >= Constants.HD_Threshold) {
+    if (count > Constants.HD_Threshold) {
       val block = in.v32();
 
       // initialize idMap with null to allow parallel updates
@@ -101,13 +123,10 @@ final class ArrayType[T](
     return 0;
   }
 
-  override def read(block : Int, in : MappedInStream) {
-    var i = block * Constants.HD_Threshold;
-    val end = Math.min(idMap.size, i + Constants.HD_Threshold);
-    while ({
+  override def read(begin : Int, end : Int, in : MappedInStream) {
+    var i = begin
+    while (i < end) {
       i += 1
-      i < end
-    }) {
       val xs = idMap(i)
       var s = in.v32();
       while (s != 0) {
@@ -117,29 +136,16 @@ final class ArrayType[T](
     }
   }
 
-  override def write(block : Int, out : BufferedOutStream) : Boolean = {
-    val count = idMap.size - 1;
-    if (0 == count) {
-      return true;
-    }
-
-    out.v64(count);
-    if (count >= Constants.HD_Threshold) {
-      out.v64(block);
-    }
-    var i = block * Constants.HD_Threshold;
-    val end = Math.min(idMap.size, i + Constants.HD_Threshold);
-    while ({
+  override def write(begin : Int, end : Int, out : BufferedOutStream) {
+    var i = begin
+    while (i < end) {
       i += 1
-      i < end
-    }) {
       val xs = idMap(i);
       out.v64(xs.size);
       for (x ← xs) {
         base.w(x, out);
       }
     }
-    return false;
   }
 }
 
@@ -157,7 +163,7 @@ final class ListType[T](
 
   protected[internal] final override def allocateInstances(count : Int, in : MappedInStream) : Int = {
     // check for blocks
-    if (count >= Constants.HD_Threshold) {
+    if (count > Constants.HD_Threshold) {
       val block = in.v32();
 
       // initialize idMap with null to allow parallel updates
@@ -189,13 +195,10 @@ final class ListType[T](
     return 0;
   }
 
-  override def read(block : Int, in : MappedInStream) {
-    var i = block * Constants.HD_Threshold;
-    val end = Math.min(idMap.size, i + Constants.HD_Threshold);
-    while ({
+  override def read(begin : Int, end : Int, in : MappedInStream) {
+    var i = begin
+    while (i < end) {
       i += 1
-      i < end
-    }) {
       val xs = idMap(i)
       var s = in.v32();
       while (s != 0) {
@@ -205,29 +208,16 @@ final class ListType[T](
     }
   }
 
-  override def write(block : Int, out : BufferedOutStream) : Boolean = {
-    val count = idMap.size - 1;
-    if (0 == count) {
-      return true;
-    }
-
-    out.v64(count);
-    if (count >= Constants.HD_Threshold) {
-      out.v64(block);
-    }
-    var i = block * Constants.HD_Threshold;
-    val end = Math.min(idMap.size, i + Constants.HD_Threshold);
-    while ({
+  override def write(begin : Int, end : Int, out : BufferedOutStream) {
+    var i = begin
+    while (i < end) {
       i += 1
-      i < end
-    }) {
       val xs = idMap(i);
       out.v64(xs.size);
       for (x ← xs) {
         base.w(x, out);
       }
     }
-    return false;
   }
 }
 
@@ -245,7 +235,7 @@ final class SetType[T](
 
   protected[internal] final override def allocateInstances(count : Int, in : MappedInStream) : Int = {
     // check for blocks
-    if (count >= Constants.HD_Threshold) {
+    if (count > Constants.HD_Threshold) {
       val block = in.v32();
 
       // initialize idMap with null to allow parallel updates
@@ -277,13 +267,10 @@ final class SetType[T](
     return 0;
   }
 
-  override def read(block : Int, in : MappedInStream) {
-    var i = block * Constants.HD_Threshold;
-    val end = Math.min(idMap.size, i + Constants.HD_Threshold);
-    while ({
+  override def read(begin : Int, end : Int, in : MappedInStream) {
+    var i = begin
+    while (i < end) {
       i += 1
-      i < end
-    }) {
       val xs = idMap(i)
       var s = in.v32();
       while (s != 0) {
@@ -293,29 +280,16 @@ final class SetType[T](
     }
   }
 
-  override def write(block : Int, out : BufferedOutStream) : Boolean = {
-    val count = idMap.size - 1;
-    if (0 == count) {
-      return true;
-    }
-
-    out.v64(count);
-    if (count >= Constants.HD_Threshold) {
-      out.v64(block);
-    }
-    var i = block * Constants.HD_Threshold;
-    val end = Math.min(idMap.size, i + Constants.HD_Threshold);
-    while ({
+  override def write(begin : Int, end : Int, out : BufferedOutStream) {
+    var i = begin
+    while (i < end) {
       i += 1
-      i < end
-    }) {
       val xs = idMap(i);
       out.v64(xs.size);
       for (x ← xs) {
         base.w(x, out);
       }
     }
-    return false;
   }
 }
 
@@ -334,7 +308,7 @@ final class MapType[K, V](
 
   protected[internal] final override def allocateInstances(count : Int, in : MappedInStream) : Int = {
     // check for blocks
-    if (count >= Constants.HD_Threshold) {
+    if (count > Constants.HD_Threshold) {
       val block = in.v32();
 
       // initialize idMap with null to allow parallel updates
@@ -366,11 +340,10 @@ final class MapType[K, V](
     return 0;
   }
 
-  protected[internal] final override def read(block : Int, in : MappedInStream) {
-    var i = block * Constants.HD_Threshold;
-    val end = Math.min(idMap.size, i + Constants.HD_Threshold);
-    i += 1
+  override def read(begin : Int, end : Int, in : MappedInStream) {
+    var i = begin
     while (i < end) {
+      i += 1
       val xs = idMap(i)
       var s = in.v32()
       while (s != 0) {
@@ -379,32 +352,19 @@ final class MapType[K, V](
         val v = valueType.r(in)
         xs(k) = v
       }
-      i += 1
     }
   }
 
-  protected[internal] final override def write(block : Int, out : BufferedOutStream) : Boolean = {
-    val count = idMap.size - 1;
-    if (0 == count) {
-      return true;
-    }
-
-    out.v64(count);
-    if (count >= Constants.HD_Threshold) {
-      out.v64(block);
-    }
-    var i = block * Constants.HD_Threshold
-    val end = Math.min(idMap.size, i + Constants.HD_Threshold);
-    i += 1
+  override def write(begin : Int, end : Int, out : BufferedOutStream) {
+    var i = begin
     while (i < end) {
+      i += 1
       val xs = idMap(i);
       out.v64(xs.size);
       for (e ← xs) {
         keyType.w(e._1, out);
         valueType.w(e._2, out);
       }
-      i += 1
     }
-    return false;
   }
 }

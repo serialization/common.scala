@@ -27,6 +27,7 @@ import ogss.common.streams.BufferedOutStream
 import ogss.common.streams.FileInputStream
 import ogss.common.streams.FileOutputStream
 import ogss.common.streams.MappedInStream
+import ogss.common.scala.api.ParseException
 
 /**
  * @note String pools use magic index 0 for faster translation of string ids to strings.
@@ -76,7 +77,8 @@ final class StringPool(
     var next = new String(in.bytes(-1, in.v32()), StringPool.utf8);
 
     // merge literals from file into literals
-    val merged = new ArrayBuffer[String](count);
+    val merged = new ArrayBuffer[String]
+    merged.sizeHint(count)
     var hasFI = false
     var hasKI = false
     while ({
@@ -103,8 +105,13 @@ final class StringPool(
         idMap += next
 
         fi += 1
-        if (fi < count)
-          next = new String(in.bytes(-1, in.v32()), StringPool.utf8);
+        if (fi < count) {
+          val n = new String(in.bytes(-1, in.v32()), StringPool.utf8);
+          if (n <= next) {
+            throw new ParseException("String block is not ordered", in)
+          }
+          next = n
+        }
       } else {
         merged += literals(ki)
         ki += 1
@@ -115,6 +122,7 @@ final class StringPool(
     if (literals.length != merged.size) {
       literals = merged.to
     }
+    assert(literals.forall(_.size > 0))
   }
 
   /**
@@ -148,10 +156,6 @@ final class StringPool(
     }
 
     return 0;
-  }
-
-  protected[internal] override def read(block : Int, map : MappedInStream) {
-    // -done- strings are lazy
   }
 
   /**
@@ -205,13 +209,15 @@ final class StringPool(
   /**
    * Write HS
    */
-  protected[internal] override def write(block : Int, out : BufferedOutStream) : Boolean = {
+  protected[internal] def write(out : BufferedOutStream) : Boolean = {
     // the null in idMap is not written and literals are written in SL
     val hullOffset = literals.length + 1;
     val count = idMap.size - hullOffset;
     if (0 == count)
       return true;
 
+    // field ID
+    out.i8(0);
     out.v64(count);
 
     // note: getBytes is an expensive operation!

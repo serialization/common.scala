@@ -22,6 +22,7 @@ import ogss.common.scala.api.OGSSException
 import ogss.common.streams.MappedInStream
 import ogss.common.scala.api.PoolSizeMissmatchError
 import java.nio.BufferUnderflowException
+import ogss.common.scala.internal.fieldTypes.ContainerType
 
 /**
  * The sequential version of Parser.
@@ -135,8 +136,13 @@ final class SeqParser(
           val block = p.allocateInstances(count, map);
 
           // create hull read data task except for StringPool which is still lazy per element and eager per offset
-          if (!p.isInstanceOf[StringPool]) {
-            jobs += new HRT(p, block, map)
+          p match {
+            case p : ContainerType[_] ⇒
+              // @note modification of the job queue requires synchronization
+              jobs.synchronized {
+                jobs += new HRT(p, block, map)
+              }
+            case _ ⇒
           }
 
         }
@@ -186,13 +192,15 @@ final class SeqParser(
   }
 
   private final class HRT(
-    private val t :     HullType[_],
+    private val t :     ContainerType[_],
     private val block : Int,
     private val map :   MappedInStream
   ) extends Job {
 
     override def run {
-      t.read(block, map);
+      val i = block * Constants.HD_Threshold;
+      val end = Math.min(t.idMap.size - 1, i + Constants.HD_Threshold)
+      t.read(i, end, map);
     }
   }
 }
