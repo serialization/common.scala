@@ -52,10 +52,14 @@ class DistributedField[T, Ref <: Obj](
 
   /**
    * field data corresponding to Pool.data
+   *
    * @note the array contains data for 0 -> (lastID-firstID), i.e. access has
    * to be shifted by firstID
+   *
+   * @note we have to allocate data immediately to treat dropped field data
+   * correctly
    */
-  private[internal] var data : Array[Any] = null
+  private[internal] var data : Array[Any] = new Array[Any](lastID - firstID)
 
   /**
    * field data corresponding to newObjects in Pool and its sub pools
@@ -96,12 +100,6 @@ class DistributedField[T, Ref <: Obj](
   }
 
   override def read(begin : Int, end : Int, in : MappedInStream) {
-    // data could not have been initialized yet
-    synchronized {
-      if (null == data)
-        data = new Array[Any](lastID - firstID)
-    }
-
     val high = end - firstID;
     var i = begin - firstID;
     while (i != high) {

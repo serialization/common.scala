@@ -68,7 +68,7 @@ class LazyField[T, Ref <: Obj](
       return r
     }
 
-    if (ID >= lastID)
+    if (ID < firstID || ID >= lastID)
       throw new IndexOutOfBoundsException("illegal access to distributed field");
 
     if (null != chunks)
@@ -87,7 +87,7 @@ class LazyField[T, Ref <: Obj](
     if (ID <= 0)
       newData.put(ref.asInstanceOf[Ref], value)
 
-    if (ID >= lastID)
+    if (ID < firstID || ID >= lastID)
       throw new IndexOutOfBoundsException("illegal access to distributed field");
 
     if (null != chunks)
