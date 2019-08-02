@@ -110,7 +110,7 @@ abstract class State(_init : StateInitializer) extends AutoCloseable {
   /**
    * @return iterator over all user types
    */
-  final def allTypes : Iterator[_ <: Access[_ <: Obj]] = classes.iterator
+  final def allTypes : Iterator[Access[_ <: Obj]] = classes.iterator
 
   /**
    * Types required for reflective IO
