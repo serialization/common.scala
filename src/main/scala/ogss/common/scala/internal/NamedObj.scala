@@ -23,5 +23,5 @@ package ogss.common.scala.internal
  * @note This type definition is in internal, because we have to protect the user from tampering with ID
  */
 trait NamedObj extends Obj {
-  def τp : Pool[_]
+  def τp : Pool[_ <: Obj]
 }

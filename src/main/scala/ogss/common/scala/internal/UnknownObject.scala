@@ -21,7 +21,7 @@ package ogss.common.scala.internal
  * @author Timm Felden
  */
 final class UnknownObject(
-  override val τp : Pool[_],
+  override val τp : Pool[_ <: Obj],
   _ID :             Int
 ) extends Obj(_ID) with NamedObj {
 

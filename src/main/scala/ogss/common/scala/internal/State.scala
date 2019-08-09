@@ -41,14 +41,14 @@ abstract class State(_init : StateInitializer) extends AutoCloseable {
   /**
    * @return pool for a given type name
    */
-  final def pool(name : String) : Pool[_] = {
+  final def pool(name : String) : Pool[_ <: Obj] = {
     if (null == TBN) {
       TBN = new HashMap
       for (p ← classes) {
         TBN(p.name) = p
       }
     }
-    return TBN(name).asInstanceOf[Pool[_]];
+    return TBN(name).asInstanceOf[Pool[_ <: Obj]];
   }
 
   /**
@@ -56,7 +56,7 @@ abstract class State(_init : StateInitializer) extends AutoCloseable {
    * @note you might get a corresponding pool even if ref is not owned by it
    * @note inv: result.owner == this || result == null
    */
-  final def pool(ref : Obj) : Pool[_] = {
+  final def pool(ref : Obj) : Pool[_ <: Obj] = {
     if (null == ref) {
       return null;
     } else if (ref.isInstanceOf[NamedObj]) {
@@ -66,7 +66,7 @@ abstract class State(_init : StateInitializer) extends AutoCloseable {
     } else {
       val TID = ref.STID;
       if (TID < SIFA.length)
-        return SIFA(TID).asInstanceOf[Pool[_]];
+        return SIFA(TID).asInstanceOf[Pool[_ <: Obj]];
     }
     return null;
   }
