@@ -1,23 +1,27 @@
-/*******************************************************************************
+/** *****************************************************************************
  * Copyright 2019 University of Stuttgart
- * 
+ *
  * Licensed under the Apache License, Version 2.0 (the "License"); you may not
  * use this file except in compliance with the License.  You may obtain a copy
  * of the License at
- * 
- *   http://www.apache.org/licenses/LICENSE-2.0
- * 
+ *
+ * http://www.apache.org/licenses/LICENSE-2.0
+ *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS, WITHOUT
  * WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.  See the
  * License for the specific language governing permissions and limitations under
  * the License.
- ******************************************************************************/
+ * *****************************************************************************/
 package ogss.common.scala.internal
+
+import java.util
+import java.util.ArrayList
 
 import ogss.common.streams.FileOutputStream
 import ogss.common.streams.OutStream
 import java.util.concurrent.Semaphore
+
 import ogss.common.streams.BufferedOutStream
 import java.util.concurrent.ConcurrentLinkedQueue
 
@@ -37,13 +41,59 @@ import ogss.common.scala.internal.fieldTypes.ContainerType
  * @author Timm Felden
  */
 final class Writer(
-  val state : State,
-  out :       FileOutputStream
-) {
+                    val state: State,
+                    out: FileOutputStream
+                  ) {
+
   import Writer._
 
+  /**
+   * The outgoing file type ids.
+   * There is one entry per TID in the runtime type system.
+   *
+   * @note this table is required, because we can drop types and we want the runtime TIDs to be immutable unique and ordered
+   */
+  private var FTID = new Array[Int](10 + state.classes.length + state.containers.length + state.enums.length);
+  for (i <- 0 until 10) FTID(i) = i
+
+  /**
+   * This FTID is assigned to a type when it introduces a new TID in the outgoing type system
+   */
+  private var nextFTID = 10
+
+  /**
+   * The outgoing file field IDs.
+   */
+  private[internal] var FFID: Array[Int] = {
+    //next FFID, because 0 is always the string pool, even if not used later on
+    var nextFFID: Int = 1
+    // we do not keep a last FFID, so we have to create an array buffer first
+    val ids = new ArrayBuffer[Int]
+    // string -> string
+    ids += 0
+    // containers
+    for (c <- state.containers) {
+      ids += (if (c.maxDeps == 0) -1
+      else {
+        nextFFID += 1;
+        nextFFID - 1
+      })
+    }
+    // data fields
+    for (p <- state.classes) {
+      for (f <- p.dataFields) {
+        assert(f.ID == ids.size)
+        ids += nextFFID
+        nextFFID += 1
+      }
+    }
+
+    ids.toArray[Int]
+  }
+
+
   // async reads will post their errors in this queue
-  var writeErrors : Throwable = null;
+  var writeErrors: Throwable = null;
 
   // our job synchronization barrier
   val barrier = new Semaphore(0, false);
@@ -63,7 +113,7 @@ final class Writer(
   /**
    * write T and F, start HD tasks and set awaitBuffers to the number of buffers if every entry had one block
    */
-  private def writeTF(out : BufferedOutStream) {
+  private def writeTF(out: BufferedOutStream) {
 
     var awaitHulls = 0;
 
@@ -95,6 +145,9 @@ final class Writer(
 
     // write types
     for (p ← state.classes) {
+      FTID(p.typeID) = nextFTID
+      nextFTID += 1
+
       out.v64(string.IDs.get(p.name));
       out.v64(p.staticDataInstances);
       attributes(p, out);
@@ -139,15 +192,18 @@ final class Writer(
       out.v64(count);
       for (c ← state.containers) {
         if (c.maxDeps != 0) {
-          c match {
-            case t : SingleArgumentType[_, _] ⇒
-              out.i8(t.kind);
-              out.v64(t.base.typeID);
+          FTID(c.typeID) = nextFTID
+          nextFTID += 1
 
-            case t : MapType[_, _] ⇒
+          c match {
+            case t: SingleArgumentType[_, _] ⇒
+              out.i8(t.kind);
+              out.v64(FTID(t.base.typeID));
+
+            case t: MapType[_, _] ⇒
               out.i8(3.toByte);
-              out.v64(t.keyType.typeID);
-              out.v64(t.valueType.typeID);
+              out.v64(FTID(t.keyType.typeID));
+              out.v64(FTID(t.valueType.typeID));
           }
         }
       }
@@ -166,6 +222,9 @@ final class Writer(
     // write count of the type block
     out.v64(state.enums.length);
     for (p ← state.enums) {
+      FTID(p.typeID) = nextFTID
+      nextFTID += 1
+
       out.v64(string.id(p.name));
       out.v64(p.values.length);
       for (v ← p.values) {
@@ -180,7 +239,7 @@ final class Writer(
     for (f ← fieldQueue) {
       // write info
       out.v64(string.id(f.name));
-      out.v64(f.t.typeID);
+      out.v64(FTID(f.t.typeID));
       attributes(f, out);
     }
 
@@ -268,14 +327,14 @@ object Writer {
   /**
    * TODO serialization of attributes
    */
-  def attributes(p : Pool[_], out : OutStream) {
+  def attributes(p: Pool[_], out: OutStream) {
     out.i8(0.toByte);
   }
 
   /**
    * TODO serialization of attributes
    */
-  def attributes(f : Field[_, _], out : OutStream) {
+  def attributes(f: Field[_, _], out: OutStream) {
     out.i8(0.toByte)
   }
 }
@@ -286,10 +345,10 @@ object Writer {
  * @author Timm Felden
  */
 final class WCompress(
-  val self : Writer,
-  val base : Pool[_ <: Obj],
-  val bpos : Array[Int]
-) extends Runnable {
+                       val self: Writer,
+                       val base: Pool[_ <: Obj],
+                       val bpos: Array[Int]
+                     ) extends Runnable {
 
   /**
    * compress new instances into the data array and update object IDs
@@ -330,8 +389,8 @@ final class WCompress(
       while (null != p) {
         for (f ← p.dataFields) {
           f match {
-            case f : DistributedField[_, _] ⇒ f.compress(bpos(p.typeID - 10))
-            case _                          ⇒
+            case f: DistributedField[_, _] ⇒ f.compress(bpos(p.typeID - 10))
+            case _ ⇒
           }
         }
         p = p.next;
@@ -382,12 +441,12 @@ final class WCompress(
  * @author Timm Felden
  */
 sealed abstract class WJob(
-  val self : Writer
-) extends Runnable {
+                            val self: Writer
+                          ) extends Runnable {
 
   var discard = true
 
-  var tail : WJob = null
+  var tail: WJob = null
 
   override def run {
     var buffer = self.recycleBuffers.poll();
@@ -400,7 +459,7 @@ sealed abstract class WJob(
     try {
       job(buffer);
     } catch {
-      case e : Throwable ⇒
+      case e: Throwable ⇒
         self.synchronized {
           if (null == self.writeErrors)
             self.writeErrors = e;
@@ -428,7 +487,7 @@ sealed abstract class WJob(
     }
   }
 
-  protected def job(buffer : BufferedOutStream)
+  protected def job(buffer: BufferedOutStream)
 }
 
 /**
@@ -437,9 +496,9 @@ sealed abstract class WJob(
  * @author Timm Felden
  */
 final class WFT(
-  _self : Writer,
-  val f : Field[_, _]
-) extends WJob(_self) {
+                 _self: Writer,
+                 val f: Field[_, _]
+               ) extends WJob(_self) {
 
   /**
    * the block this task is responsible for; the task processing block 0 starts the other tasks and can therefore
@@ -447,7 +506,7 @@ final class WFT(
    */
   private var block = 0
 
-  override def job(buffer : BufferedOutStream) {
+  override def job(buffer: BufferedOutStream) {
 
     val size = f.owner.cachedSize
 
@@ -488,7 +547,7 @@ final class WFT(
       i += bpo;
       h += bpo;
 
-      buffer.v64(f.ID);
+      buffer.v64(self.FFID(f.ID));
       if (size > Constants.FD_Threshold) {
         buffer.v64(block);
       }
@@ -507,7 +566,7 @@ final class WFT(
 
     if (done) {
       f.t match {
-        case t : HullType[_] ⇒ t.synchronized {
+        case t: HullType[_] ⇒ t.synchronized {
           t.deps -= 1
           assert(t.deps >= 0)
           if (0 == t.deps) {
@@ -527,9 +586,9 @@ final class WFT(
  * @author Timm Felden
  */
 final class WHT(
-  _self :  Writer,
-  val ht : HullType[_]
-) extends WJob(_self) {
+                 _self: Writer,
+                 val ht: HullType[_]
+               ) extends WJob(_self) {
 
   /**
    * the block this task is responsible for; the task processing block 0 starts the other tasks and can therefore know
@@ -537,9 +596,9 @@ final class WHT(
    */
   private var block = 0
 
-  override def job(buffer : BufferedOutStream) {
+  override def job(buffer: BufferedOutStream) {
     ht match {
-      case t : ContainerType[_] ⇒ {
+      case t: ContainerType[_] ⇒ {
         var hasblocks = false
         val size = t.IDs.size
         discard = 0 == size
@@ -569,7 +628,7 @@ final class WHT(
             hasblocks = true;
           }
 
-          buffer.v64(t.fieldID);
+          buffer.v64(self.FFID(t.fieldID));
           buffer.v64(size);
           if (size > Constants.HD_Threshold) {
             buffer.v64(block);
@@ -588,8 +647,8 @@ final class WHT(
 
         if (done) {
           ht match {
-            case ct : SingleArgumentType[_, _] ⇒ ct.base match {
-              case bt : HullType[_] ⇒ bt.synchronized {
+            case ct: SingleArgumentType[_, _] ⇒ ct.base match {
+              case bt: HullType[_] ⇒ bt.synchronized {
                 bt.deps -= 1
                 assert(bt.deps >= 0)
                 if (0 == bt.deps) {
@@ -600,9 +659,9 @@ final class WHT(
               case _ ⇒
             }
 
-            case ct : MapType[_, _] ⇒ {
+            case ct: MapType[_, _] ⇒ {
               ct.keyType match {
-                case bt : HullType[_] ⇒ bt.synchronized {
+                case bt: HullType[_] ⇒ bt.synchronized {
                   bt.deps -= 1
                   assert(bt.deps >= 0)
                   if (0 == bt.deps) {
@@ -613,7 +672,7 @@ final class WHT(
                 case _ ⇒
               }
               ct.valueType match {
-                case bt : HullType[_] ⇒ bt.synchronized {
+                case bt: HullType[_] ⇒ bt.synchronized {
                   bt.deps -= 1
                   if (0 == bt.deps) {
                     // execute task in this thread to avoid unnecessary overhead
@@ -627,7 +686,7 @@ final class WHT(
           }
         }
       }
-      case t : StringPool ⇒ discard = t.write(buffer)
+      case t: StringPool ⇒ discard = t.write(buffer)
     }
   }
 }
