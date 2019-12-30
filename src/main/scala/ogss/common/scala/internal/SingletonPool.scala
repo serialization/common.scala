@@ -17,7 +17,7 @@ trait SingletonPool[T <: Obj] extends Pool[T] {
     var i = bpo
 
     if (staticDataInstances > 1) {
-      throw new OGSSException(s"classe $name is a singleton, but has $staticDataInstances instances")
+      throw new OGSSException(s"class $name is a singleton, but has $staticDataInstances instances")
     }
     if (1 == staticDataInstances) {
       // create a new object, claiming that there is none in data
