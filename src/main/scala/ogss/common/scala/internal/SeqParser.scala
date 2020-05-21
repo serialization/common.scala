@@ -15,11 +15,11 @@
  ******************************************************************************/
 package ogss.common.scala.internal
 
-import ogss.common.streams.FileInputStream
+import ogss.common.jvm.streams.FileInputStream
 import scala.collection.mutable.ArrayBuffer
 import ogss.common.scala.Constants
 import ogss.common.scala.api.OGSSException
-import ogss.common.streams.MappedInStream
+import ogss.common.jvm.streams.MappedInStream
 import ogss.common.scala.api.PoolSizeMissmatchError
 import java.nio.BufferUnderflowException
 import ogss.common.scala.internal.fieldTypes.ContainerType

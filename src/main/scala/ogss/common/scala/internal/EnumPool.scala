@@ -15,8 +15,8 @@
  ******************************************************************************/
 package ogss.common.scala.internal
 
-import ogss.common.streams.InStream
-import ogss.common.streams.OutStream
+import ogss.common.jvm.streams.InStream
+import ogss.common.jvm.streams.OutStream
 import scala.collection.mutable.ArrayBuffer
 
 /**

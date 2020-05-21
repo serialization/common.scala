@@ -18,9 +18,9 @@ package ogss.common.scala.internal
 import java.util.IdentityHashMap
 
 import ogss.common.scala.internal.fieldTypes.Bool
-import ogss.common.streams.BoolOutWrapper
-import ogss.common.streams.BufferedOutStream
-import ogss.common.streams.MappedInStream
+import ogss.common.jvm.streams.BoolOutWrapper
+import ogss.common.jvm.streams.BufferedOutStream
+import ogss.common.jvm.streams.MappedInStream
 
 /**
  * The fields data is distributed into an array (or hash map for new objects) holding its instances.

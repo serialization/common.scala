@@ -16,8 +16,8 @@
 package ogss.common.scala.internal
 
 import scala.collection.mutable.ArrayBuffer
-import ogss.common.streams.InStream
-import ogss.common.streams.OutStream
+import ogss.common.jvm.streams.InStream
+import ogss.common.jvm.streams.OutStream
 
 /**
  * AnyRef types are instantiated once per state.

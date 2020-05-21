@@ -23,10 +23,10 @@ import scala.collection.mutable.ArrayBuffer
 import scala.concurrent.ExecutionContext.global
 
 import ogss.common.scala.api.InvalidPoolIndexException
-import ogss.common.streams.BufferedOutStream
-import ogss.common.streams.FileInputStream
-import ogss.common.streams.FileOutputStream
-import ogss.common.streams.MappedInStream
+import ogss.common.jvm.streams.BufferedOutStream
+import ogss.common.jvm.streams.FileInputStream
+import ogss.common.jvm.streams.FileOutputStream
+import ogss.common.jvm.streams.MappedInStream
 import ogss.common.scala.api.ParseException
 
 /**

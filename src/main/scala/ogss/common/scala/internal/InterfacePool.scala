@@ -3,8 +3,8 @@ package ogss.common.scala.internal
 import scala.reflect.ClassTag
 
 import ogss.common.scala.api.GeneralAccess
-import ogss.common.streams.InStream
-import ogss.common.streams.OutStream
+import ogss.common.jvm.streams.InStream
+import ogss.common.jvm.streams.OutStream
 
 /**
  * Holds interface instances. Serves as an API realization. Ensures correctness of reflective type system.

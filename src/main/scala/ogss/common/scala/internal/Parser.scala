@@ -39,7 +39,7 @@ import ogss.common.scala.internal.fieldTypes.V64
 import ogss.common.scala.internal.fields.AutoField
 import ogss.common.scala.internal.restrictions.FieldRestriction
 import ogss.common.scala.internal.restrictions.TypeRestriction
-import ogss.common.streams.FileInputStream
+import ogss.common.jvm.streams.FileInputStream
 
 /**
  * Strategy-independent parser functionality.

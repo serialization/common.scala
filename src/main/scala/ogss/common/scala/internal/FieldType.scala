@@ -15,16 +15,13 @@
  ******************************************************************************/
 package ogss.common.scala.internal
 
-import ogss.common.streams.OutStream
-import ogss.common.streams.InStream
+import ogss.common.jvm.streams.{InStream, OutStream}
 
 /**
  * Top level implementation of a field type, the runtime representation of a fields type.
  *
- * @param <T> type of field values
- *
+ * @param T type of field values
  * @note representation of the type system relies on invariants and heavy abuse of type erasure
- *
  * @author Timm Felden
  */
 abstract class FieldType[T](_typeID : Int) extends ogss.common.scala.api.FieldType[T](_typeID) {
@@ -36,7 +33,7 @@ abstract class FieldType[T](_typeID : Int) extends ogss.common.scala.api.FieldTy
    *       sane type system)
    * @note intended for internal usage only!
    */
-  def r(in : InStream) : T
+  def r(in : InStream): T
 
   /**
    * Write one T into the stream.

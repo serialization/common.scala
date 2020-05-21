@@ -17,7 +17,7 @@ package ogss.common.scala.internal
 
 import java.io.IOException
 
-import ogss.common.streams.MappedInStream
+import ogss.common.jvm.streams.MappedInStream
 import scala.collection.mutable.ArrayBuffer
 
 /**

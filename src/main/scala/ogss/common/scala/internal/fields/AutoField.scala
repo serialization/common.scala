@@ -19,8 +19,8 @@ import ogss.common.scala.internal.Field
 import ogss.common.scala.internal.FieldType
 import ogss.common.scala.internal.Obj
 import ogss.common.scala.internal.Pool
-import ogss.common.streams.BufferedOutStream
-import ogss.common.streams.MappedInStream
+import ogss.common.jvm.streams.BufferedOutStream
+import ogss.common.jvm.streams.MappedInStream
 
 /**
  * This trait marks auto fields.

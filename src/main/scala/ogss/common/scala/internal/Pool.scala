@@ -21,8 +21,8 @@ import scala.reflect.ClassTag
 import ogss.common.scala.api.Access
 import ogss.common.scala.api.OGSSException
 import ogss.common.scala.internal.fields.AutoField
-import ogss.common.streams.InStream
-import ogss.common.streams.OutStream
+import ogss.common.jvm.streams.InStream
+import ogss.common.jvm.streams.OutStream
 
 /**
  * Top level implementation of all storage pools.

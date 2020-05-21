@@ -20,9 +20,9 @@ import java.util.IdentityHashMap
 import scala.collection.mutable.ArrayBuffer
 
 import ogss.common.scala.api.GeneralAccess
-import ogss.common.streams.InStream
-import ogss.common.streams.MappedInStream
-import ogss.common.streams.OutStream
+import ogss.common.jvm.streams.InStream
+import ogss.common.jvm.streams.MappedInStream
+import ogss.common.jvm.streams.OutStream
 
 /**
  * This type subsumes all types whose serialization uses a hull-field.

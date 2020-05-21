@@ -18,11 +18,11 @@ package ogss.common.scala.internal
 import java.util
 import java.util.ArrayList
 
-import ogss.common.streams.FileOutputStream
-import ogss.common.streams.OutStream
+import ogss.common.jvm.streams.FileOutputStream
+import ogss.common.jvm.streams.OutStream
 import java.util.concurrent.Semaphore
 
-import ogss.common.streams.BufferedOutStream
+import ogss.common.jvm.streams.BufferedOutStream
 import java.util.concurrent.ConcurrentLinkedQueue
 
 import scala.concurrent.ExecutionContext.global

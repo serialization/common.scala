@@ -33,7 +33,7 @@ import ogss.common.scala.internal.fieldTypes.I8
 import ogss.common.scala.internal.fieldTypes.MapType
 import ogss.common.scala.internal.fieldTypes.SingleArgumentType
 import ogss.common.scala.internal.fieldTypes.V64
-import ogss.common.streams.FileInputStream
+import ogss.common.jvm.streams.FileInputStream
 
 /**
  * Initializes a state. One of Creator, Parser, SequentialParser.

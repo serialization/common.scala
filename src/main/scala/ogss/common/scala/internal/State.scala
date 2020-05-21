@@ -19,7 +19,7 @@ import scala.collection.mutable.HashMap
 import ogss.common.scala.api.Access
 import java.nio.file.Path
 import java.io.IOException
-import ogss.common.streams.FileOutputStream
+import ogss.common.jvm.streams.FileOutputStream
 import ogss.common.scala.api.OGSSException
 import ogss.common.scala.api.GeneralAccess
 import ogss.common.scala.internal.fieldTypes.ContainerType

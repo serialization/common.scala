@@ -18,8 +18,8 @@ package ogss.common.scala.internal
 import ogss.common.scala.api.FieldAccess
 import ogss.common.scala.internal.fields.AutoField
 import scala.collection.mutable.HashSet
-import ogss.common.streams.MappedInStream
-import ogss.common.streams.BufferedOutStream
+import ogss.common.jvm.streams.MappedInStream
+import ogss.common.jvm.streams.BufferedOutStream
 import ogss.common.scala.internal.restrictions.FieldRestriction
 import scala.collection.mutable.HashMap
 import scala.collection.mutable.Iterable

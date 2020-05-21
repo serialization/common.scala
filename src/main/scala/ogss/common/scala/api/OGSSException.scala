@@ -15,7 +15,7 @@
  ******************************************************************************/
 package ogss.common.scala.api
 
-import ogss.common.streams.InStream
+import ogss.common.jvm.streams.InStream
 import ogss.common.scala.internal.Field
 import java.nio.BufferUnderflowException
 

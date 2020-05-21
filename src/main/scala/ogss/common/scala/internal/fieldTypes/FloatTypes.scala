@@ -16,8 +16,8 @@
 package ogss.common.scala.internal.fieldTypes
 
 import ogss.common.scala.internal.FieldType
-import ogss.common.streams.InStream
-import ogss.common.streams.OutStream
+import ogss.common.jvm.streams.InStream
+import ogss.common.jvm.streams.OutStream
 
 /**
  * Floating point types

@@ -20,11 +20,11 @@ import ogss.common.scala.internal.State
 import ogss.common.scala.internal.FieldType
 import scala.collection.mutable.ArrayBuffer
 import ogss.common.scala.Constants
-import ogss.common.streams.MappedInStream
+import ogss.common.jvm.streams.MappedInStream
 import scala.collection.mutable.ListBuffer
 import scala.collection.mutable.HashSet
 import scala.collection.mutable.HashMap
-import ogss.common.streams.BufferedOutStream
+import ogss.common.jvm.streams.BufferedOutStream
 
 /**
  * Super class of all container types

@@ -1,8 +1,8 @@
 package ogss.common.scala.internal
 
 import ogss.common.scala.api.GeneralAccess
-import ogss.common.streams.InStream
-import ogss.common.streams.OutStream
+import ogss.common.jvm.streams.InStream
+import ogss.common.jvm.streams.OutStream
 import scala.reflect.ClassTag
 
 /**
